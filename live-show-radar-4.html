@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scoring Concerts</title>
+  <style>
+    :root { --bg:#0b0c10; --panel:#111319; --text:#e8e8ea; --muted:#a7a7b2; }
+    body {
+      margin: 0; font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      background: linear-gradient(180deg,#07080b,var(--bg));
+      color: var(--text);
+    }
+    .pageTitle { text-align:center; font-size:26px; font-weight:800; padding:18px 0 10px; }
+    .topSection { max-width:1100px; margin:0 auto; padding:0 20px 10px; }
+    .nameRow {
+      background:rgba(17,19,25,0.92); border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px; padding:14px 16px; margin-bottom:14px;
+      display:grid; grid-template-columns:1fr 1fr; gap:14px;
+    }
+    .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    .field input {
+      width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.12);
+      color:var(--text); border-radius:10px; padding:9px 10px; font-size:14px; outline:none;
+    }
+    .rowCard { max-width:1100px; margin:0 auto 12px; padding:0 20px; }
+    .card {
+      background:rgba(17,19,25,0.92); border:1px solid rgba(255,255,255,0.06);
+      border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,0.35);
+    }
+    .card h2 {
+      margin:0; padding:14px 16px; border-bottom:1px solid rgba(255,255,255,0.06);
+      font-size:16px; letter-spacing:.2px;
+    }
+    .body { padding:14px 16px 16px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { padding:10px 8px; border-bottom:1px solid rgba(255,255,255,0.06); }
+    th { text-align:left; font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.35px; }
+    tr:last-child td { border-bottom:none; }
+    input[type="number"]{
+      width:90px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.10);
+      color:var(--text); border-radius:10px; padding:8px 10px; font-size:14px;
+    }
+    .pill {
+      border:1px solid rgba(255,255,255,0.10); background:rgba(255,255,255,0.03);
+      padding:8px 10px; border-radius:999px; font-size:13px; color:var(--muted);
+    }
+    .controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px;}
+    button{
+      cursor:pointer;border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.05);color:var(--text);
+      padding:10px 12px;border-radius:12px;font-weight:650;
+    }
+    .chartCard{max-width:1100px;margin:0 auto 20px;padding:0 20px;}
+    .chartWrap{display:flex;flex-direction:column;align-items:center;gap:10px;}
+    canvas{
+      width:100%;max-width:1000px;aspect-ratio:1/0.6;
+      background:rgba(255,255,255,0.02);border-radius:14px;border:1px solid rgba(255,255,255,0.06);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="pageTitle" id="pageTitle">Scoring Concerts</div>
+
+  <div class="topSection">
+    <div class="nameRow">
+      <div class="field">
+        <label for="userName">Name</label>
+        <input id="userName" type="text" placeholder="Enter your name">
+      </div>
+      <div class="field">
+        <label for="concertName">Concert</label>
+        <input id="concertName" type="text" placeholder="Enter concert name">
+      </div>
+    </div>
+  </div>
+
+  <div class="rowCard">
+    <div class="card">
+      <h2>Inputs</h2>
+      <div class="body">
+        <table id="domainsTable">
+          <thead>
+            <tr>
+              <th style="width:52%;">Domain</th>
+              <th style="width:24%;">Score (1–10)</th>
+              <th style="width:24%;">Weight</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <div style="height:12px"></div>
+
+        <div class="controls">
+          <span class="pill">
+            Personal Love:
+            <select id="love" style="margin-left:6px;background:transparent;color:white;border:none;font-weight:800;">
+              <option value="0.8">0.8</option>
+              <option value="1.0" selected>1.0</option>
+              <option value="1.2">1.2</option>
+            </select>
+          </span>
+          <span class="pill">Weighted score: <strong id="baseScore">—</strong></span>
+          <span class="pill">Final score: <strong id="finalScore">—</strong></span>
+          <button id="demoBtn">Fill demo values</button>
+          <button id="resetBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chartCard">
+    <div class="card">
+      <h2>Radar Output</h2>
+      <div class="body">
+        <div class="chartWrap">
+          <canvas id="radar" width="1400" height="850"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const pageTitleEl=document.getElementById("pageTitle");
+  const nameEl=document.getElementById("userName");
+  const concertEl=document.getElementById("concertName");
+
+  function updateTitle(){
+    const name=nameEl.value.trim();
+    const show=concertEl.value.trim();
+    if(!name||!show){
+      pageTitleEl.textContent="Scoring Concerts";
+      document.title="Scoring Concerts";
+      return;
+    }
+    const full=`${name}’s Scoring of ${show}’s Concert`;
+    pageTitleEl.textContent=full;
+    document.title=full;
+  }
+  nameEl.addEventListener("input",updateTitle);
+  concertEl.addEventListener("input",updateTitle);
+
+  const DOMAINS=[
+    {name:"Artist Performance & Skill"},
+    {name:"Artist Interaction"},
+    {name:"Setlist & Song Selection"},
+    {name:"Show Production"},
+    {name:"Quality of the Live Mix"},
+    {name:"Crowd Engagement & Behavior"},
+    {name:"Venue & Acoustics"}
+  ];
+
+  const tbody=document.querySelector("#domainsTable tbody");
+  const loveEl=document.getElementById("love");
+  const baseScoreEl=document.getElementById("baseScore");
+  const finalScoreEl=document.getElementById("finalScore");
+
+  const inputs=[];
+  DOMAINS.forEach(d=>{
+    const tr=document.createElement("tr");
+    const tdN=document.createElement("td"); tdN.textContent=d.name;
+    const tdS=document.createElement("td");
+    const s=document.createElement("input"); s.type="number"; s.min="1"; s.max="10"; s.value="7";
+    tdS.appendChild(s);
+    const tdW=document.createElement("td");
+    const w=document.createElement("input"); w.type="number"; w.min="0"; w.value="10";
+    tdW.appendChild(w);
+    tr.append(tdN,tdS,tdW); tbody.appendChild(tr);
+    inputs.push({scoreEl:s,weightEl:w});
+  });
+
+  const canvas=document.getElementById("radar");
+  const ctx=canvas.getContext("2d");
+  function clamp(n,min,max){return Math.max(min,Math.min(max,n));}
+
+  function getModel(){
+    const scores=inputs.map(x=>clamp(Number(x.scoreEl.value||0),0,10));
+    const weightsRaw=inputs.map(x=>Math.max(0,Number(x.weightEl.value||0)));
+    const wSum=weightsRaw.reduce((a,b)=>a+b,0)||1;
+    const weights=weightsRaw.map(w=>w/wSum);
+    const love=Number(loveEl.value);
+    const base=scores.reduce((a,s,i)=>a+s*weights[i],0);
+    const final=base*love;
+    return {scores,weights,base,final,love};
+  }
+
+  function draw(){
+    const {scores,weights,base,final,love}=getModel();
+    baseScoreEl.textContent=base.toFixed(2);
+    finalScoreEl.textContent=final.toFixed(2);
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const cx=canvas.width/2;
+    const cy=(canvas.height*0.80)/2;
+    const gridRadius=Math.min(cx,cy)-80;
+    const n=DOMAINS.length;
+    const start=-Math.PI/2;
+
+    ctx.strokeStyle="rgba(255,255,255,0.12)";
+    ctx.lineWidth=2;
+    for(let r=1;r<=5;r++){
+      const rad=gridRadius*(r/5);
+      ctx.beginPath();
+      for(let i=0;i<n;i++){
+        const a=start+i*2*Math.PI/n;
+        const x=cx+Math.cos(a)*rad;
+        const y=cy+Math.sin(a)*rad;
+        i?ctx.lineTo(x,y):ctx.moveTo(x,y);
+      }
+      ctx.closePath(); ctx.stroke();
+    }
+
+    ctx.strokeStyle="rgba(255,255,255,0.25)";
+    for(let i=0;i<n;i++){
+      const a=start+i*2*Math.PI/n;
+      ctx.beginPath();
+      ctx.moveTo(cx,cy);
+      ctx.lineTo(cx+Math.cos(a)*gridRadius,cy+Math.sin(a)*gridRadius);
+      ctx.stroke();
+    }
+
+    ctx.font="16px system-ui";
+    ctx.fillStyle="rgba(232,232,234,0.95)";
+    ctx.textBaseline="middle";
+
+    for(let i=0;i<n;i++){
+      const a=start+i*2*Math.PI/n;
+      const lx=cx+Math.cos(a)*(gridRadius+26);
+      const ly=cy+Math.sin(a)*(gridRadius+26);
+      const cos=Math.cos(a);
+      ctx.textAlign=cos>0.35?"left":(cos<-0.35?"right":"center");
+
+      const label=DOMAINS[i].name;
+      const weighted=(scores[i]*weights[i]).toFixed(2);
+
+      const words=label.split(" ");
+      let line1="",line2="";
+      words.forEach(w=>{
+        const t=(line1?line1+" ":"")+w;
+        if(t.length<=20) line1=t; else line2+=(line2?" ":"")+w;
+      });
+
+      ctx.fillText(line1,lx,ly);
+      if(line2) ctx.fillText(line2,lx,ly+18);
+
+      ctx.font="14px system-ui";
+      ctx.fillStyle="rgba(167,167,178,0.95)";
+      ctx.fillText(`Weighted: ${weighted}`,lx,ly+36);
+      ctx.font="16px system-ui";
+      ctx.fillStyle="rgba(232,232,234,0.95)";
+    }
+
+    const pts=[];
+    for(let i=0;i<n;i++){
+      const a=start+i*2*Math.PI/n;
+      const r=gridRadius*(scores[i]/10)*love;
+      pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r]);
+    }
+
+    ctx.beginPath();
+    pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
+    ctx.closePath();
+    ctx.fillStyle="rgba(123,223,242,0.18)";
+    ctx.fill();
+    ctx.lineWidth=3;
+    ctx.strokeStyle="rgba(123,223,242,0.75)";
+    ctx.stroke();
+
+    ctx.fillStyle="rgba(123,223,242,0.95)";
+    pts.forEach(([x,y])=>{
+      ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill();
+    });
+
+    ctx.font="22px system-ui";
+    ctx.textAlign="center";
+    ctx.textBaseline="top";
+    ctx.fillStyle="rgba(232,232,234,0.95)";
+    ctx.fillText(`Weighted Score: ${base.toFixed(2)} × Love ${love.toFixed(1)} = ${final.toFixed(2)}`,cx,20);
+  }
+
+  function onChange(){draw();}
+  inputs.forEach(({scoreEl,weightEl})=>{
+    scoreEl.addEventListener("input",onChange);
+    weightEl.addEventListener("input",onChange);
+  });
+  loveEl.addEventListener("change",onChange);
+  document.getElementById("resetBtn").addEventListener("click",()=>{
+    inputs.forEach(({scoreEl,weightEl})=>{scoreEl.value=7;weightEl.value=10;});
+    loveEl.value="1.0"; draw();
+  });
+  document.getElementById("demoBtn").addEventListener("click",()=>{
+    const s=[9,8,9,8,8,6,7], w=[20,10,15,10,15,10,20];
+    inputs.forEach(({scoreEl,weightEl},i)=>{scoreEl.value=s[i];weightEl.value=w[i];});
+    loveEl.value="1.2"; draw();
+  });
+
+  draw();
+</script>
+</body>
+</html>
